@@ -1,0 +1,28 @@
+{
+  "name": "cashnstore",
+  "version": "0.1.0",
+  "description": "CashNStore: point of sale, inventory and GCash tracking for a small tindahan.",
+  "main": "server/index.js",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "db:reset": "node scripts/db.js reset",
+    "db:setup": "node scripts/db.js setup",
+    "db:seed": "node scripts/db.js seed",
+    "db:fresh": "node scripts/db.js fresh",
+    "check": "node scripts/check.js",
+    "smoke": "node scripts/smoke.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "connect-pg-simple": "^10.0.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "pg": "^8.12.0"
+  }
+}
