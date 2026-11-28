@@ -10,6 +10,7 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
+    "db:init": "node scripts/db.js init",
     "db:reset": "node scripts/db.js reset",
     "db:setup": "node scripts/db.js setup",
     "db:seed": "node scripts/db.js seed",
