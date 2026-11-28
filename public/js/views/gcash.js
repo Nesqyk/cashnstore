@@ -59,7 +59,7 @@ export async function list() {
 
 // ---- cash in / cash out form ----------------------------------------------------------------------------------
 function txForm(type) {
-  return async function render() {
+  return async function render(_context, panel) {
     const sum = await api.get('/api/gcash/summary');
     const isIn = type === 'cash_in';
     let feeMode = 'deduct';
@@ -69,48 +69,63 @@ function txForm(type) {
     const ref = input({ placeholder: 'GCash reference no. (optional)' });
     const boxes = { customer_name: field('Customer name', withIcon(icon('user', 18), name)), gcash_number: field('GCash number', withIcon(icon('phone', 18), number)), amount: field('Amount', amount), reference: field('Reference number', ref) };
     const quick = h('div', { class: 'chips' }, [100, 200, 500, 1000, 2000, 5000].map((v) => h('button', { type: 'button', class: 'chip', onclick: () => { amountIn.value = v; quote(); } }, peso(v))));
-    const summary = h('div', { class: 'stack s12' });
+    const summary = h('div', { class: 'sp-summary', 'aria-live': 'polite' });
+    const prompt = () => h('p', { class: 'muted' }, 'Enter an amount to see the fee and what to hand over.');
+    summary.append(prompt());
     const err = h('div', { class: 'alert err hidden', role: 'alert' });
-    const save = h('button', { class: 'btn primary lg', type: 'submit' }, isIn ? 'Record cash in' : 'Record cash out');
-    let lastQuote = null; let seq = 0;
+    const save = h('button', { class: 'btn primary', type: 'submit' }, isIn ? 'Record cash in' : 'Record cash out');
+    let seq = 0;
     const feeSeg = h('div', { class: 'seg' }, [['deduct', 'Deduct from amount'], ['separate', 'Customer pays separately']].map(([v, l]) => h('button', { type: 'button', class: v === feeMode ? 'active' : '', onclick: (e) => { feeMode = v; [...feeSeg.children].forEach((b) => b.classList.remove('active')); e.currentTarget.classList.add('active'); quote(); } }, l)));
 
     const quote = debounce(async () => {
       const amt = Number(amountIn.value); const mine = ++seq;
-      if (!amt || amt < 1) { lastQuote = null; summary.replaceChildren(h('p', { class: 'muted' }, 'Enter an amount to see the fee and what to hand over.')); return; }
+      if (!amt || amt < 1) { summary.replaceChildren(prompt()); return; }
       try {
         const q = await api.get('/api/gcash/quote', { type, amount: amt, fee_mode: feeMode });
-        if (mine !== seq) return; lastQuote = q;
-        summary.replaceChildren(
-          h('div', { class: 'row between' }, h('span', { class: 'muted' }, 'Amount'), h('b', null, peso(amt, 2))),
-          h('div', { class: 'row between' }, h('span', { class: 'muted' }, 'Service fee'), h('b', null, peso(q.fee, 2))),
-          h('hr', { class: 'divider' }),
-          isIn ? h('div', { class: 'row between' }, h('span', { class: 'bold' }, 'Collect from customer'), h('b', { style: { fontSize: '24px', color: 'var(--teal)' } }, peso(q.cash_from_customer, 2)))
-            : [h('div', { class: 'row between' }, h('span', { class: 'bold' }, 'Hand over to customer'), h('b', { style: { fontSize: '24px', color: 'var(--teal)' } }, peso(q.cash_to_customer, 2))),
-              q.cash_from_customer ? h('div', { class: 'row between' }, h('span', { class: 'muted' }, 'Collect fee from customer'), h('b', null, peso(q.cash_from_customer, 2))) : null],
-          h('div', { class: 'soft-box stack s8' },
-            h('div', { class: 'row between small' }, h('span', { class: 'muted' }, 'GCash float after'), h('b', { style: q.float_low_after ? { color: 'var(--warn)' } : null }, peso(q.float_after))),
-            h('div', { class: 'row between small' }, h('span', { class: 'muted' }, 'Drawer cash after'), h('b', null, peso(q.drawer_after)))),
+        if (mine !== seq) return;
+        const big = (label, value) => h('div', { class: 'row between' }, h('span', { class: 'bold' }, label), h('b', { class: 'sp-big' }, peso(value, 2)));
+        summary.replaceChildren(...[
+          isIn ? big('Collect from customer', q.cash_from_customer) : big('Hand over to customer', q.cash_to_customer),
+          !isIn && q.cash_from_customer ? h('div', { class: 'row between' }, h('span', { class: 'bold' }, 'Collect fee from customer'), h('b', null, peso(q.cash_from_customer, 2))) : null,
+          h('div', { class: 'sp-facts' }, h('span', null, 'Amount ', h('b', null, peso(amt, 2))), h('span', null, 'Service fee ', h('b', null, peso(q.fee, 2)))),
+          h('div', { class: 'sp-facts' }, h('span', null, 'GCash float after ', h('b', { style: q.float_low_after ? { color: 'var(--warn)' } : null }, peso(q.float_after))),
+            h('span', null, 'Drawer cash after ', h('b', null, peso(q.drawer_after)))),
           q.float_low_after ? h('div', { class: 'alert warn' }, icon('alert', 16), 'This will leave your float below the minimum.') : null,
-          (isIn && q.float_after < 0) || (!isIn && q.drawer_after < 0) ? h('div', { class: 'alert err' }, icon('alert', 16), isIn ? 'Not enough GCash float for this amount.' : 'Not enough cash in the drawer.') : null);
-      } catch (ex) { summary.replaceChildren(h('div', { class: 'alert err' }, ex.message)); }
+          (isIn && q.float_after < 0) || (!isIn && q.drawer_after < 0) ? h('div', { class: 'alert err' }, icon('alert', 16), isIn ? 'Not enough GCash float for this amount.' : 'Not enough cash in the drawer.') : null,
+        ].filter(Boolean));
+      } catch (ex) { if (mine === seq) summary.replaceChildren(h('div', { class: 'alert err' }, ex.message)); }
     }, 200);
     amountIn.addEventListener('input', quote); quote();
 
-    const formEl = h('form', { class: 'stack', novalidate: true }, card(h('div', { class: 'form-grid' }, boxes.customer_name, boxes.gcash_number, h('div', { class: 'full' }, boxes.amount, h('div', { style: { marginTop: '8px' } }, quick)),
-      isIn ? null : h('div', { class: 'full field' }, h('label', null, 'How is the fee taken?'), feeSeg), h('div', { class: 'full' }, boxes.reference)), { title: isIn ? 'Customer sends cash, you send GCash' : 'Customer sends GCash, you give cash' }), err,
-      h('div', { class: 'row' }, h('a', { class: 'btn', href: href('/gcash') }, 'Cancel'), save));
-    formEl.addEventListener('submit', async (e) => {
-      e.preventDefault(); err.classList.add('hidden'); showFieldErrors(boxes);
-      await busy(save, async () => {
-        try { const r = await api.post('/api/gcash', { type, customer_name: name.value, gcash_number: number.value, amount: amountIn.value, reference: ref.value, fee_mode: isIn ? undefined : feeMode });
-          toast(`${r.gc_no} recorded`, 'ok'); go(`/gcash/${r.id}`); }
-        catch (ex) { if (ex.fields && Object.keys(ex.fields).length) showFieldErrors(boxes, ex.fields); err.textContent = ex.message; err.classList.remove('hidden'); }
+    const values = () => ({ type, customer_name: name.value, gcash_number: number.value, amount: amountIn.value, reference: ref.value, fee_mode: isIn ? undefined : feeMode });
+    let saving = false;
+    async function submit() {
+      if (saving) return;
+      saving = true; err.classList.add('hidden'); showFieldErrors(boxes);
+      const r = await busy(save, async () => {
+        try { return await api.post('/api/gcash', values()); }
+        catch (ex) { if (ex.fields && Object.keys(ex.fields).length) showFieldErrors(boxes, ex.fields); err.textContent = ex.message; err.classList.remove('hidden'); return null; }
       });
-    });
-    return h('div', { class: 'stack' }, pageHead({ crumb: { to: '/gcash', label: 'GCash' }, title: isIn ? 'GCash cash in' : 'GCash cash out', subtitle: isIn ? 'The customer hands you cash; you send the amount to their GCash.' : 'The customer sends GCash to your wallet; you hand them cash.' }),
-      h('div', { class: 'grid g-main' }, formEl, h('div', { class: 'stack' }, card(summary, { title: 'Summary' }),
-        card(h('div', { class: 'stack s8' }, h('div', { class: 'row between small' }, h('span', { class: 'muted' }, 'GCash float now'), h('b', null, peso(sum.gcash_float))), h('div', { class: 'row between small' }, h('span', { class: 'muted' }, 'Cash in drawer now'), h('b', null, peso(sum.drawer_cash))), h('div', { class: 'row between small' }, h('span', { class: 'muted' }, 'Fee rate'), h('b', null, `${sum.fee_percent}% (min ${peso(sum.min_fee)})`))), { title: 'Right now' }))));
+      saving = false;
+      if (!r) return panel.revealError();
+      toast(`${r.gc_no} recorded`, 'ok');
+      panel.leaveTo(`/gcash/${r.id}`);
+    }
+
+    return {
+      title: isIn ? 'GCash cash in' : 'GCash cash out',
+      subtitle: isIn ? 'The customer hands you cash; you send the amount to their GCash.' : 'The customer sends GCash to your wallet; you hand them cash.',
+      body: [
+        card(h('div', { class: 'form-grid' }, boxes.customer_name, boxes.gcash_number, h('div', { class: 'full' }, boxes.amount, h('div', { style: { marginTop: '8px' } }, quick)),
+          isIn ? null : h('div', { class: 'full field' }, h('label', null, 'How is the fee taken?'), feeSeg), h('div', { class: 'full' }, boxes.reference)), { title: isIn ? 'Customer sends cash, you send GCash' : 'Customer sends GCash, you give cash' }),
+        card(h('div', { class: 'stack s8' }, h('div', { class: 'row between small' }, h('span', { class: 'muted' }, 'GCash float now'), h('b', null, peso(sum.gcash_float))), h('div', { class: 'row between small' }, h('span', { class: 'muted' }, 'Cash in drawer now'), h('b', null, peso(sum.drawer_cash))), h('div', { class: 'row between small' }, h('span', { class: 'muted' }, 'Fee rate'), h('b', null, `${sum.fee_percent}% (min ${peso(sum.min_fee)})`))), { title: 'Right now' }),
+      ],
+      summary,
+      error: err,
+      actions: save,
+      onSubmit: submit,
+      snapshot: values,
+    };
   };
 }
 export const cashIn = txForm('cash_in');

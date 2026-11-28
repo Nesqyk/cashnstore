@@ -75,30 +75,58 @@ export function toast(message, kind = '') {
   setTimeout(() => t.remove(), kind === 'err' ? 5000 : 3000);
 }
 
+// ---- layers: dialogs and the side panel ----------------------------------------------------------
+// Everything that covers the page registers here, bottom first. Only the top layer reacts to Esc and
+// to the keyboard; whatever is underneath is made inert. (Each layer's backdrop takes its own outside clicks.)
+const layers = [];
+const syncLayers = () => {
+  layers.forEach((l, i) => { l.el.inert = i < layers.length - 1; });
+  const app = document.getElementById('app');
+  if (app) app.inert = layers.some((l) => l.coversApp);
+};
+export function pushLayer(layer) {                  // { el, dismiss, close?, coversApp? } -> remove()
+  layers.push(layer); syncLayers();
+  return () => { const i = layers.indexOf(layer); if (i >= 0) layers.splice(i, 1); syncLayers(); };
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing || !layers.length) return;
+  e.preventDefault();
+  layers[layers.length - 1].dismiss();
+});
+// Closes every dialog, top first. The side panel has no `close` here: the router decides when it goes.
+export function closeAllModals() { [...layers].reverse().forEach((l) => { if (l.close) l.close(); }); }
+
 // Opens a modal with `content` (a node). Returns { close, el }.
 export function openModal(content, { wide = false, onClose } = {}) {
   const root = document.getElementById('modal-root');
   const box = h('div', { class: `modal${wide ? ' wide' : ''}`, role: 'dialog', 'aria-modal': 'true' }, content);
   const back = h('div', { class: 'modal-back' }, box);
   const prevFocus = document.activeElement;
-  const close = () => { back.remove(); document.removeEventListener('keydown', onKey); if (prevFocus && prevFocus.focus) prevFocus.focus(); if (onClose) onClose(); };
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
-  back.addEventListener('mousedown', (e) => { if (e.target === back) close(); });
-  document.addEventListener('keydown', onKey);
+  let closed = false; let removeLayer = () => {};
+  const close = () => {
+    if (closed) return;
+    closed = true; back.remove(); removeLayer();
+    if (prevFocus && prevFocus.focus) prevFocus.focus();
+    if (onClose) onClose();
+  };
+  // preventDefault: the mouse press must not move focus after close() has put it back
+  back.addEventListener('mousedown', (e) => { if (e.target === back) { e.preventDefault(); close(); } });
   root.append(back);
-  const first = box.querySelector('input, select, textarea, button.primary');
+  removeLayer = pushLayer({ el: back, dismiss: close, close });
+  const first = box.querySelector('input, select, textarea, button.primary')
+    || (document.getElementById('app').inert ? box.querySelector('button') : null);   // over the side panel, focus must not be left behind
   if (first) first.focus();
   return { close, el: box };
 }
 
-export function confirmModal({ title, message, confirmText = 'Confirm', danger = false }) {
+export function confirmModal({ title, message, confirmText = 'Confirm', cancelText = 'Cancel', danger = false }) {
   return new Promise((resolve) => {
     let done = false;
     const finish = (v) => { if (!done) { done = true; resolve(v); } };
     const m = openModal(h('div', null,
       h('h2', null, title), h('p', { class: 'muted', style: { marginTop: '6px' } }, message),
       h('div', { class: 'modal-actions' },
-        h('button', { class: 'btn', onclick: () => { finish(false); m.close(); } }, 'Cancel'),
+        h('button', { class: 'btn', onclick: () => { finish(false); m.close(); } }, cancelText),
         h('button', { class: `btn ${danger ? 'danger solid' : 'primary'}`, onclick: () => { finish(true); m.close(); } }, confirmText))),
     { onClose: () => finish(false) });
   });
@@ -141,6 +169,13 @@ export function spinnerBlock() { return h('div', { class: 'center-screen' }, h('
 export async function busy(btn, fn) {
   const label = btn.textContent; btn.disabled = true; btn.classList.add('disabled');
   try { return await fn(); } finally { btn.disabled = false; btn.classList.remove('disabled'); btn.textContent = label; }
+}
+
+// The element itself, or if a refresh redrew it: the link that replaced it, otherwise the main area.
+export function stillThere(el) {
+  if (el.isConnected) return el;
+  const to = el.getAttribute('href');
+  return (to && document.querySelector(`#app a[href="${CSS.escape(to)}"]`)) || document.getElementById('main');
 }
 
 export function download(url) { const a = document.createElement('a'); a.href = url; a.download = ''; document.body.append(a); a.click(); a.remove(); }

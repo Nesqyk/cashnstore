@@ -181,6 +181,7 @@ export default async function pos() {
     h('div', { class: 'pos' },
       h('div', { class: 'stack s12' }, h('div', { class: 'row wrap' }, h('div', { class: 'grow', style: { minWidth: '240px' } }, withIcon(icon('search', 18), search)), h('span', { class: 'small muted' }, icon('barcode', 16), ' Scanner ready')), catChips, grid),
       orderBox));
+  page.refresh = refreshProducts;
   setTimeout(() => search.focus(), 0);
   return page;
 }
