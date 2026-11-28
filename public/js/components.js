@@ -50,6 +50,13 @@ export function tabs(items, active, onPick) {
   return wrap;
 }
 
+// Swaps a list's contents in place, keeping how far its table was scrolled sideways.
+export function redraw(box, node) {
+  const wide = box.querySelector('.tbl-wrap'); const x = wide ? wide.scrollLeft : 0;
+  box.replaceChildren(node);
+  const next = box.querySelector('.tbl-wrap'); if (next && x) next.scrollLeft = x;
+}
+
 export function pager({ page, size, total, onPage, noun = 'results' }) {
   const pages = Math.max(1, Math.ceil(total / size));
   const from = total ? (page - 1) * size + 1 : 0; const to = Math.min(total, page * size);
