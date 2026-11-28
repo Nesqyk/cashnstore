@@ -28,7 +28,7 @@ export async function list() {
       card(h('div', null, groupedBars({ groups: a.hourly.map((r) => ({ label: hourLabel(r.hour), a: r.cash_in, b: r.cash_out })), height: 190, title: 'GCash today by the hour' }), h('div', { style: { marginTop: '8px' } }, legend([{ label: 'Cash in', color: COLORS.teal }, { label: 'Cash out', color: COLORS.org }]))), { title: 'Today by the hour' }),
       card(h('div', { class: 'stack' }, h('div', null, h('div', { class: 'small muted' }, 'Fees this week'), h('div', { style: { fontSize: '26px', fontWeight: 700 } }, peso(a.fees_week_total)),
         delta(a.fees_prev_week_total ? ((a.fees_week_total - a.fees_prev_week_total) / a.fees_prev_week_total) * 100 : null)),
-      barChart({ bars: a.fees_week.map((f) => ({ label: fmtWeekday(f.date), value: f.fees })), height: 150, highlightLast: true, title: 'Fees earned per day' })), { title: 'Fees earned' })));
+      barChart({ bars: a.fees_week.map((f) => ({ label: fmtWeekday(f.date), tip: `${fmtWeekday(f.date)}, ${fmtDay(f.date)}`, value: f.fees })), height: 150, highlightLast: true, title: 'Fees earned per day', name: 'Fees' })), { title: 'Fees earned' })));
   }).catch(() => {});
 
   const box = h('div'); page.append(box);

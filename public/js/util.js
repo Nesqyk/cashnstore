@@ -83,6 +83,7 @@ const syncLayers = () => {
   layers.forEach((l, i) => { l.el.inert = i < layers.length - 1; });
   const app = document.getElementById('app');
   if (app) app.inert = layers.some((l) => l.coversApp);
+  document.dispatchEvent(new Event('cns:layers'));        // chart tooltips close when something covers them
 };
 export function pushLayer(layer) {                  // { el, dismiss, close?, coversApp? } -> remove()
   layers.push(layer); syncLayers();

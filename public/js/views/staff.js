@@ -22,7 +22,7 @@ export async function list() {
         [['Morning', a.coverage.morning], ['Evening', a.coverage.evening]].map(([label, vals]) => h('div', { class: 'row', style: { gap: '4px' } }, h('span', { class: 'small muted', style: { width: '76px' } }, label),
           vals.map((v) => h('div', { title: `${v} on shift`, style: { flex: 1, height: '30px', borderRadius: '8px', display: 'grid', placeItems: 'center', fontWeight: 600, fontSize: '13px', background: v === 0 ? 'var(--bad-bg)' : v === 1 ? 'var(--warn-bg)' : 'var(--chip)', color: v === 0 ? 'var(--bad)' : v === 1 ? 'var(--warn)' : 'var(--teal)' } }, v)))),
         h('p', { class: 'tiny muted' }, 'People scheduled per shift. Red means nobody is covering.')), { title: 'Shift coverage' }),
-      card(a.by_cashier.length ? hbars(a.by_cashier.map((c) => ({ label: c.name, value: c.total })), {}) : h('p', { class: 'muted' }, 'No sales yet.'), { title: 'Sales by cashier', subtitle: 'Last 7 days' }))));
+      card(a.by_cashier.length ? hbars(a.by_cashier.map((c) => ({ label: c.name, value: c.total })), { title: 'Sales by cashier, last 7 days' }) : h('p', { class: 'muted' }, 'No sales yet.'), { title: 'Sales by cashier', subtitle: 'Last 7 days' }))));
   }).catch(() => {});
   loadStrip();
 

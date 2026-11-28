@@ -32,7 +32,7 @@ export async function list({ query }) {
         { value: peso(a.value_cost), label: 'stock value at cost' },
         { value: peso(a.value_retail), label: 'if all sold at price' },
         { value: a.slow_count, label: a.slow_count ? `slow movers: ${a.slow_movers.map((s) => s.name).slice(0, 2).join(', ')}` : 'slow movers' },
-        h('div', { class: 'ins' }, sparkline(a.value_trend.map((v) => v.value)), h('span', null, 'stock value, 12 days')),
+        h('div', { class: 'ins' }, sparkline(a.value_trend.map((v) => v.value), { labels: a.value_trend.map((v) => fmtDay(v.date)), title: 'Stock value, 12 days' }), h('span', null, 'stock value, 12 days')),
       ]));
     }).catch(() => {});
   }

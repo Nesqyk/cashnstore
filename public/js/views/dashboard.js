@@ -27,7 +27,7 @@ function mixCard(mix, title = 'How customers paid') {
   const parts = mix.map((m) => ({ label: METHOD_LABEL[m.method], value: m.total, color: MIX_COLORS[m.method] }));
   const total = mix.reduce((a, m) => a + m.total, 0);
   if (!total) return card(h('p', { class: 'muted' }, 'No payments yet.'), { title });
-  return card(h('div', { class: 'row', style: { gap: '24px', flexWrap: 'wrap' } }, donut({ parts, centerTop: pesoShort(total), centerBottom: 'total', size: 150 }),
+  return card(h('div', { class: 'row', style: { gap: '24px', flexWrap: 'wrap' } }, donut({ parts, centerTop: pesoShort(total), centerBottom: 'total', size: 150, title }),
     h('div', { class: 'stack s8 grow' }, mix.map((m) => h('div', { class: 'row between' },
       h('span', null, h('i', { style: { display: 'inline-block', width: '10px', height: '10px', borderRadius: '3px', background: MIX_COLORS[m.method], marginRight: '8px' } }), METHOD_LABEL[m.method]),
       h('span', { class: 'num' }, `${peso(m.total)} · ${m.orders}`))))), { title });
@@ -37,7 +37,7 @@ function hourlyChart(rows, { prevKey = 'yesterday', curKey = 'today', title }) {
   const hrs = rows.filter((r) => r[curKey] !== undefined);
   if (!hrs.length || hrs.every((r) => !r[curKey] && !r[prevKey])) return h('p', { class: 'muted' }, 'Sales by the hour will appear once you start selling.');
   return h('div', null, lineChart({ labels: hrs.map((r) => hourLabel(r.hour)), title,
-    series: [{ values: hrs.map((r) => r[prevKey]), color: COLORS.teal3, dashed: true }, { values: hrs.map((r) => r[curKey]), color: COLORS.teal, area: true }] }),
+    series: [{ name: 'Yesterday', values: hrs.map((r) => r[prevKey]), color: COLORS.teal3, dashed: true }, { name: 'Today', values: hrs.map((r) => r[curKey]), color: COLORS.teal, area: true }] }),
   h('div', { style: { marginTop: '10px' } }, legend([{ label: 'Today', color: COLORS.teal }, { label: 'Yesterday', color: COLORS.teal3 }])));
 }
 
@@ -45,7 +45,7 @@ function hourlyChart(rows, { prevKey = 'yesterday', curKey = 'today', title }) {
 async function ownerView(user, d) {
   const t = d.today;
   const vsYesterday = d.today.yesterday_same_time > 0 ? ((t.sales - t.yesterday_same_time) / t.yesterday_same_time) * 100 : null;
-  const week = d.week.map((w) => ({ label: fmtWeekday(w.date), value: w.total }));
+  const week = d.week.map((w) => ({ label: fmtWeekday(w.date), tip: `${fmtWeekday(w.date)}, ${fmtDay(w.date)}`, value: w.total }));
   const page = h('div', { class: 'stack s24' });
   page.append(pageHead({ title: `${greeting()}, ${firstName(user)}`, subtitle: `${session.store?.store_name || ''} · here is how the store is doing today.`,
     actions: [h('a', { class: 'btn', href: href('/gcash/cash-in') }, icon('wallet', 16), 'GCash'), h('a', { class: 'btn primary', href: href('/pos') }, icon('cart', 16), 'Open register')] }));
@@ -57,7 +57,7 @@ async function ownerView(user, d) {
     kpi('GCash float', peso(d.gcash_float), { sub: d.gcash_float < 10000 ? 'Below your minimum. Top up soon.' : 'Wallet balance on hand' })));
 
   page.append(h('div', { class: 'grid g-23' },
-    card(week.every((w) => !w.value) ? emptyState({ art: 'chart', title: 'No sales this week yet', text: 'Your 7-day chart fills in as you sell.' }) : barChart({ bars: week, highlightLast: true, title: 'Sales, last 7 days' }),
+    card(week.every((w) => !w.value) ? emptyState({ art: 'chart', title: 'No sales this week yet', text: 'Your 7-day chart fills in as you sell.' }) : barChart({ bars: week, highlightLast: true, title: 'Sales, last 7 days', name: 'Sales' }),
       { title: 'Sales this week', subtitle: 'The last 7 days, today in dark teal' }),
     card(d.low_count + d.out_count === 0
       ? emptyState({ art: 'stock', title: 'All stocked up', text: 'Nothing is running low right now.' })
@@ -92,7 +92,7 @@ function analyticsBlocks(a) {
     kpi('Average sale', peso(k.avg_sale, 2), { pct: k.avg_pct, sub: label }), kpi('Estimated profit', peso(k.profit), { pct: k.profit_pct, sub: 'sales minus product cost' })));
 
   out.push(h('div', { class: 'grid g-23' },
-    card(h('div', null, lineChart({ labels: a.series.map((s) => fmtDay(s.date)), title: 'Sales trend', series: [{ values: a.series.map((s) => s.prev_total), color: COLORS.teal3, dashed: true }, { values: a.series.map((s) => s.total), color: COLORS.teal, area: true }] }),
+    card(h('div', null, lineChart({ labels: a.series.map((s) => fmtDay(s.date)), title: 'Sales trend', series: [{ name: 'Previous period', values: a.series.map((s) => s.prev_total), color: COLORS.teal3, dashed: true }, { name: 'This period', values: a.series.map((s) => s.total), color: COLORS.teal, area: true }] }),
       h('div', { style: { marginTop: '10px' } }, legend([{ label: 'This period', color: COLORS.teal }, { label: 'Previous period', color: COLORS.teal3 }]))), { title: 'Sales trend' }),
     mixCard(a.payment_mix, 'Payment mix')));
 
@@ -110,7 +110,7 @@ function analyticsBlocks(a) {
     card(h('div', { class: 'tbl-wrap' }, heatmap(a.heatmap)), { title: 'Busiest hours', subtitle: 'Darker means more sales. Use it to plan who works when.' })));
 
   out.push(card(h('div', { class: 'grid g-23' },
-    h('div', null, groupedBars({ groups: a.gcash.daily.map((g) => ({ label: fmtWeekday(g.date), a: g.cash_in, b: g.cash_out })), title: 'GCash cash in and out' }),
+    h('div', null, groupedBars({ groups: a.gcash.daily.map((g) => ({ label: fmtWeekday(g.date), tip: `${fmtWeekday(g.date)}, ${fmtDay(g.date)}`, a: g.cash_in, b: g.cash_out })), title: 'GCash cash in and out' }),
       h('div', { style: { marginTop: '10px' } }, legend([{ label: 'Cash in', color: COLORS.teal }, { label: 'Cash out', color: COLORS.org }]))),
     h('div', { class: 'stack' },
       h('div', { class: 'soft-box' }, h('div', { class: 'small muted' }, 'Fees earned'), h('div', { class: 'k-value', style: { fontSize: '24px', fontWeight: 700 } }, peso(a.gcash.fees)),
