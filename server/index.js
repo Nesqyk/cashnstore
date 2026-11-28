@@ -1,4 +1,7 @@
+const fs = require('fs');
 const path = require('path');
+const util = require('util');
+const zlib = require('zlib');
 const express = require('express');
 const session = require('express-session');
 const PgStore = require('connect-pg-simple')(session);
@@ -75,6 +78,23 @@ api.use((req, res, next) => next(new HttpError(404, 'Not found')));
 app.use('/api', api);
 
 // ---- front end ----------------------------------------------------------------------------------------
+// The charting library: this one prebuilt file out of node_modules, compressed once and kept in memory.
+let echartsBundle = null;
+const readEcharts = async () => {
+  const raw = await fs.promises.readFile(require.resolve('echarts/dist/echarts.esm.min'));
+  return { raw, gzip: await util.promisify(zlib.gzip)(raw, { level: 9 }) };
+};
+app.get('/vendor/echarts.js', async (req, res, next) => {
+  try {
+    echartsBundle = echartsBundle || readEcharts().catch((err) => { echartsBundle = null; throw err; });
+    const file = await echartsBundle;
+    const gzip = req.acceptsEncodings('gzip', 'identity') === 'gzip';
+    res.type('js').set({ 'Cache-Control': `public, max-age=${config.isProd ? 3600 : 0}`, Vary: 'Accept-Encoding' });
+    if (gzip) res.set('Content-Encoding', 'gzip');
+    res.send(gzip ? file.gzip : file.raw);
+  } catch (err) { next(err); }
+});
+
 const publicDir = path.join(__dirname, '..', 'public');
 app.use(express.static(publicDir, { index: false, maxAge: config.isProd ? '1h' : 0 }));
 app.get('*', (req, res) => res.sendFile(path.join(publicDir, 'index.html')));

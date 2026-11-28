@@ -55,10 +55,10 @@ export default async function inventory() {
     if (!can('analytics.store')) return;
     api.get('/api/inventory/analytics').then((a) => {
       const next = card(h('div', { class: 'stack' },
-        a.days_left.length ? hbars(a.days_left.map((d) => ({ label: d.name, value: d.days, text: d.days === 0 ? 'Out' : `${d.days} d`, color: d.days <= 1 ? 'var(--bad)' : d.days <= 3 ? 'var(--org)' : COLORS.teal })), { fmt: (v) => `${v} d`, max: Math.max(7, ...a.days_left.map((d) => d.days)) }) : h('p', { class: 'muted' }, 'No items are close to running out.'),
+        a.days_left.length ? hbars(a.days_left.map((d) => ({ label: d.name, value: d.days, text: d.days === 0 ? 'Out' : `${d.days} d`, color: d.days <= 1 ? 'var(--bad)' : d.days <= 3 ? 'var(--org)' : COLORS.teal })), { fmt: (v) => `${v} d`, max: Math.max(7, ...a.days_left.map((d) => d.days)), title: 'Days of stock left' }) : h('p', { class: 'muted' }, 'No items are close to running out.'),
         h('hr', { class: 'divider' }),
         h('div', { class: 'small muted' }, 'Stock-outs per week (last 8 weeks)'),
-        barChart({ bars: a.stockouts_per_week.map((w) => ({ label: fmtDay(w.week_end), value: w.count })), fmt: (v) => String(Math.round(v)), height: 170, color: COLORS.org, title: 'Stock-outs per week' })),
+        barChart({ bars: a.stockouts_per_week.map((w) => ({ label: fmtDay(w.week_end), tip: `Week ending ${fmtDay(w.week_end)}`, value: w.count })), fmt: (v) => String(Math.round(v)), height: 170, color: COLORS.org, title: 'Stock-outs per week', name: 'Stock-outs' })),
       { title: 'How long stock will last', subtitle: 'At the current selling speed' });
       if (lasting) lasting.replaceWith(next); else lower.prepend(next);
       lasting = next;
