@@ -20,21 +20,33 @@ Demo data is **Aling Maria's Tindahan & E-Services** (Ibabao, Perrelos, Carcar C
 | Reports | Overview plus sales, inventory and GCash reports with period filters and CSV downloads |
 | Settings | Store info, receipt message, discount and GCash fee rules, account and avatar, password, owner PIN, signed-in devices |
 
-## Quick start (local PostgreSQL + pgAdmin)
+## Quick start (local PostgreSQL)
 
-You need Node 18+ and PostgreSQL 13+.
+You need Node 18+ and PostgreSQL 13+ running on your machine (the same server pgAdmin connects to).
 
-1. **Create the database in pgAdmin.** Right-click *Databases > Create > Database*, name it `cashnstore`, leave the encoding as `UTF8`.
-2. **Create the tables and demo data.** Either:
-   - *In pgAdmin:* open the Query Tool on `cashnstore`, then open and run these files **in order**: `db/01_schema.sql`, `db/02_rbac.sql`, `db/03_functions.sql`, `db/04_demo_seed.sql` (skip the seed file if you want an empty store). `db/00_reset.sql` wipes everything and is only for starting over.
-   - *Or from the terminal* (after step 3): `npm run db:fresh`.
-3. **Configure the app.**
-   ```bash
-   cp .env.example .env      # then edit DATABASE_URL and SESSION_SECRET
-   npm install
-   npm start                 # http://localhost:3000
-   ```
-   `DATABASE_URL` looks like `postgres://postgres:YOURPASSWORD@localhost:5432/cashnstore`.
+### One command: create the database and load everything
+
+```bash
+npm install
+npm run db:init
+npm start                 # http://localhost:3000
+```
+
+`npm run db:init` asks for your local PostgreSQL host, port, user and password (the ones pgAdmin uses), writes `.env` for you (with a random `SESSION_SECRET`), **creates the `cashnstore` database** (UTF8) if it is missing, then loads the schema, roles/permissions, analytics functions and demo data. If `.env` already exists it uses that and asks nothing.
+
+| Command | Result |
+| --- | --- |
+| `npm run db:init` | Create the database if needed and load schema + demo data. Does nothing if CashNStore tables are already there |
+| `npm run db:init -- --no-seed` | Same, but an empty store (no demo data) |
+| `npm run db:init -- --force` | Wipe the CashNStore tables and load everything again |
+
+Afterwards, open pgAdmin, right-click *Databases* > *Refresh*, and `cashnstore` is there. The user needs the `CREATEDB` right (the default `postgres` user has it).
+
+### Or do it by hand in pgAdmin
+
+1. Right-click *Databases > Create > Database*, name it `cashnstore`, encoding `UTF8`.
+2. Open the Query Tool on it and run, in order: `db/01_schema.sql`, `db/02_rbac.sql`, `db/03_functions.sql`, `db/04_demo_seed.sql` (skip the seed for an empty store). `db/00_reset.sql` wipes everything and is only for starting over.
+3. `cp .env.example .env`, set `DATABASE_URL` (like `postgres://postgres:YOURPASSWORD@localhost:5432/cashnstore`) and `SESSION_SECRET`, then `npm start`.
 
 ### Demo logins
 
@@ -88,7 +100,8 @@ Cashiers see only their own sales. Store-wide analytics strips on Products, Inve
 | --- | --- |
 | `npm start` | Run the server |
 | `npm run dev` | Run with auto-restart on changes |
-| `npm run db:fresh` | Drop everything, rebuild the schema and load the demo data |
+| `npm run db:init` | Create the database if needed, then load schema + demo data |
+| `npm run db:fresh` | Drop everything in an existing database, rebuild the schema and load the demo data |
 | `npm run db:setup` / `db:seed` / `db:reset` | Schema only / demo data only / wipe |
 | `npm run check` | Confirm the database objects and every analytics function work |
 | `npm run smoke` | Run ~115 API checks (roles, checkout maths, refunds, GCash, staff). Writes test data, so use a throwaway database |
